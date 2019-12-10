@@ -58,7 +58,7 @@ namespace SimpleBinding
 
             _sourceObject = new WeakReference(source);
             _targetObject = new WeakReference(target);
-            _converter = converter == null ? new NonConverter() : converter;
+            _converter = converter ?? new NonConverter();
             _mode = mode;
 
 
@@ -149,9 +149,18 @@ namespace SimpleBinding
         {
             if (_sourceObject.Target is TSource source && _targetObject.Target is TTarget target)
             {
-                TSourceProp sourceValue = _sourcePropertyGet(source);
-                TTargetProp converted = (TTargetProp)_converter.ConvertSourceToTarget(sourceValue, typeof(TTargetProp));
-                _targetPropertySet(target, converted);
+                lock(source)
+                lock (target)
+                {
+                    TSourceProp sourceValue = _sourcePropertyGet(source);
+                    TTargetProp converted = (TTargetProp)_converter.ConvertSourceToTarget(sourceValue, typeof(TTargetProp));
+                    _targetPropertySet(target, converted);
+                }
+                
+            }
+            else
+            {
+                IsActive = false;
             }
         }
 
@@ -159,9 +168,13 @@ namespace SimpleBinding
         {
             if (_sourceObject.Target is TSource source && _targetObject.Target is TTarget target)
             {
-                TTargetProp targetValue = _targetPropertyGet(target);
-                TSourceProp converted = (TSourceProp)_converter.ConvertTargetToSource(targetValue, typeof(TSourceProp));
-                _sourcePropertySet(source, converted);
+                lock(source)
+                lock (target)
+                {
+                    TTargetProp targetValue = _targetPropertyGet(target);
+                    TSourceProp converted = (TSourceProp)_converter.ConvertTargetToSource(targetValue, typeof(TSourceProp));
+                    _sourcePropertySet(source, converted);
+                }
             }
             else
             {
