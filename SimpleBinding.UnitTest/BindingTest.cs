@@ -13,10 +13,10 @@ using System.Reflection;
 
 namespace SimpleBinding.UnitTest
 {
-    [TestClass]
+    [Microsoft.VisualStudio.TestTools.UnitTesting.TestClass]
     public class BindingTest
     {
-        [TestMethod]
+        [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
         public void TestBindingOptionPerformance()
         {
             MethodInfo getter;
@@ -239,9 +239,61 @@ namespace SimpleBinding.UnitTest
             Assert.AreNotEqual(target.SourceIntProperty, -1);
             Assert.AreEqual(target.SourceIntProperty, 55);
         }
+
+        [TestMethod]
+        public void TestTwoWayBindingNoConversion()
+        {
+            var bto1 = new BindingTestObject();
+            var bto2 = new BindingTestObject();
+            int bindingKey;
+
+            Func<object> creator = () =>
+            {
+                var b1 = new BindingTestObject();
+                var b2 = new BindingTestObject();
+
+                BindingManager.CreateBinding(b1, b => b.SourceIntProperty, b2, b => b.SourceStringProperty, 
+                    BindingMode.TwoWay, null);
+
+                return null;
+            };
+            //Should be impossible to create a binding between two properties of different types without a converter
+            Assert.ThrowsException<ArgumentException>(creator, "");
+
+            //Can, however, create binding between properties of the same type
+            bindingKey = BindingManager.CreateBinding(bto1, t => t.SourceIntProperty,
+                bto2, t => t.SourceIntProperty, BindingMode.TwoWay, null);
+
+            //Binding should cause target to update when source updates
+            bto1.SourceIntProperty = 25;
+            Assert.AreEqual(bto2.SourceIntProperty, bto1.SourceIntProperty);
+
+            //Binding should also cause source to update when the target updates
+            bto2.SourceIntProperty = 99;
+            Assert.AreEqual(bto1.SourceIntProperty, bto2.SourceIntProperty);
+
+            //setting unbound properties should cause no changes on target/source objects, as binding occurs
+            //on a per-property basis and not for objects as a whole
+            bto1.SourceStringProperty = "Toasty";
+            bto2.SourceStringProperty = "Not Toasty";
+
+            Assert.AreNotEqual(bto1.SourceStringProperty, bto2.SourceStringProperty);
+            Assert.AreEqual(bto1.SourceStringProperty, "Toasty");
+            Assert.AreEqual(bto2.SourceStringProperty, "Not Toasty");
+
+            //Disposing of the binding should cease all propogation of updates
+            BindingManager.DestroyBinding(bindingKey);
+
+            bto1.SourceIntProperty = -1;
+            bto2.SourceIntProperty = 256;
+
+            Assert.AreNotEqual(bto1.SourceIntProperty, bto2.SourceIntProperty);
+            Assert.AreEqual(bto1.SourceIntProperty, -1);
+            Assert.AreEqual(bto2.SourceIntProperty, 256);
+        }
     }
 
-    public class Notifier : INotifyPropertyChanged, INotifyPropertyChanging
+    public class Notifier : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -249,11 +301,6 @@ namespace SimpleBinding.UnitTest
         protected virtual void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-        protected virtual void OnPropertyChanging(string propertyName, object originalValue)
-        {
-            PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(propertyName));
         }
 
         /// <summary>
@@ -272,7 +319,6 @@ namespace SimpleBinding.UnitTest
                 try
                 {
                     field = value;
-                    OnPropertyChanging(name, field);
                     OnPropertyChanged(name);
                 }
                 catch
@@ -283,8 +329,6 @@ namespace SimpleBinding.UnitTest
                 }    
             }
         }
-
-        public event PropertyChangingEventHandler PropertyChanging;
     }
 
     public class BindingTestObject : INotifyPropertyChanged

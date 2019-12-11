@@ -8,7 +8,6 @@ D:\Git\SimpleBinding\SimpleBinding.UnitTest\bin\Debug\Microsoft.VisualStudio.Tes
 D:\Git\SimpleBinding\SimpleBinding.UnitTest\bin\Debug\Microsoft.VisualStudio.TestPlatform.TestFramework.xml
 D:\Git\SimpleBinding\SimpleBinding.UnitTest\bin\Debug\Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions.xml
 D:\Git\SimpleBinding\SimpleBinding.UnitTest\obj\Debug\SimpleBinding.UnitTest.csprojAssemblyReference.cache
-D:\Git\SimpleBinding\SimpleBinding.UnitTest\obj\Debug\SimpleBinding.UnitTest.csproj.CoreCompileInputs.cache
 D:\Git\SimpleBinding\SimpleBinding.UnitTest\obj\Debug\SimpleBinding.UnitTest.csproj.CopyComplete
 D:\Git\SimpleBinding\SimpleBinding.UnitTest\obj\Debug\SimpleBinding.UnitTest.dll
 D:\Git\SimpleBinding\SimpleBinding.UnitTest\obj\Debug\SimpleBinding.UnitTest.pdb

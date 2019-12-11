@@ -39,7 +39,7 @@ namespace SimpleBinding
             //Make sure types are compatible when a converter is not specified
             //If a converter is specified, no need to worry about compatibility, as programming a working converter is the dev problem
             if (converter == null && typeof(TSourceProp) != typeof(TTargetProp))
-                throw new ArgumentNullException("Unable to create binding because " + 
+                throw new ArgumentException("Unable to create binding because " + 
                                                 $"{typeof(TTargetProp)} and {typeof(TSourceProp)} " + 
                                                 "Are not the same type and no converter was specified");
 
