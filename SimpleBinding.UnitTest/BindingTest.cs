@@ -291,6 +291,42 @@ namespace SimpleBinding.UnitTest
             Assert.AreEqual(bto1.SourceIntProperty, -1);
             Assert.AreEqual(bto2.SourceIntProperty, 256);
         }
+
+        [TestMethod]
+        public void TestNestedPropertyBinding()
+        {
+            var nested1 = new NestedBindingObject();
+            var nested2 = new NestedBindingObject();
+            var target = new BindingTestObject();
+
+            nested1.SourceIntProperty = 22;
+            nested1.SourceStringProperty = "Toasty";
+
+            int key = BindingManager.CreateBinding(nested1, b => b.InnerObject.SourceIntProperty, target,
+                b => b.SourceIntProperty,
+                BindingMode.TwoWay, null);
+
+            Expression<Func<NestedBindingObject, int>> x = b => b.InnerObject.SourceIntProperty;
+
+            Expression e = x.Body;
+            bool cont = true;
+
+            MemberExpression inner = e as MemberExpression;
+
+            while (cont)
+            {
+                Trace.Write($"{inner?.Member.Name} <--");
+                if (inner.Expression is MemberExpression expr)
+                {
+                    inner = expr;
+                }
+                else
+                {
+                    cont = false;
+                }
+            }
+
+        }
     }
 
     public class Notifier : INotifyPropertyChanged
@@ -333,8 +369,8 @@ namespace SimpleBinding.UnitTest
 
     public class BindingTestObject : INotifyPropertyChanged
     {
-        private string _sourceStringProp;
-        private int _sourceIntProp;
+        protected string _sourceStringProp;
+        protected int _sourceIntProp;
 
         public string SourceStringProperty
         {
@@ -374,6 +410,18 @@ namespace SimpleBinding.UnitTest
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+
+    public class NestedBindingObject : BindingTestObject
+    {
+        protected BindingTestObject _inner;
+
+        public BindingTestObject InnerObject
+        {
+            get => _inner;
+            set => _inner = value;
         }
     }
 

@@ -13,3 +13,4 @@ D:\Git\SimpleBinding\SimpleBinding.UnitTest\obj\Debug\SimpleBinding.UnitTest.dll
 D:\Git\SimpleBinding\SimpleBinding.UnitTest\obj\Debug\SimpleBinding.UnitTest.pdb
 D:\Git\SimpleBinding\SimpleBinding.UnitTest\bin\Debug\SimpleBinding.dll
 D:\Git\SimpleBinding\SimpleBinding.UnitTest\bin\Debug\SimpleBinding.pdb
+D:\Git\SimpleBinding\SimpleBinding.UnitTest\obj\Debug\SimpleBinding.UnitTest.csproj.CoreCompileInputs.cache
