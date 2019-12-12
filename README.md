@@ -23,5 +23,21 @@
 <p>To remove a data binding, invoke the static DestroyBinding() method and provide the integer key of the binding to be destroyed:</p>
 <p>BindingManager.DestroyBinding(bindingId);</p>
 
+<H3>Caveats to usage</H3>
+<p>Note that binding to nested properties does work (ie binding outer.inner.property to someObject.property), provided that:</p>
+<ul>
+  <li>inner implements INotifyPropertyChanged (it is not actually necessary for outer to implement INotifyPropertyChanged in this instance)</li>
+  <li>the call to CreateBinding is <code>BindingManager.CreateBinding(outer.inner, i => i.property, someObject, someObject.property...)</code></li>
+</ul>
+<p>In other words, attempting to bind as such:</p>
+<p><code>BindingManager.CreateBinding(outer, o => o.inner.property, target, t => t.Property...)</code> <b>will not work</b>, and although I am working on making this work, it is not high on my list of priorities.</p>
+<p>To understand why it makes sense that this binding does not work, consider:</p>
+<ul>
+  <li>In order for outer to notify the binding manager that a property of inner has changed, inner would need to notify outer that said property has changed</li>
+  <li>In order for inner to notify outer, inner would need to implement INotifyPropertyChanged and outer would need to subscribe to inners NotifyPropertyChanged event</li>
+</ul>
+
+<p>Thus, in any scenario involving a nested binding, the inner object whose property is to be bound must implement INotifyPropertychanged, which means we may as well bind directly to inner rather than going through its containing object first.</p>
+
 <H2>How it works</H2>
 //TODO: FILL IN THIS SECTION
