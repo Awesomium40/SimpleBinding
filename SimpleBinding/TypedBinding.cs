@@ -3,7 +3,9 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text;
 using System.Windows;
+using BindingManager.Annotations;
 using Expression = System.Linq.Expressions.Expression;
 
 namespace SimpleBinding
@@ -20,6 +22,7 @@ namespace SimpleBinding
         private Action<TSource, TSourceProp> _sourcePropertySet;
         private Func<TTarget, TTargetProp> _targetPropertyGet;
         private Action<TTarget, TTargetProp> _targetPropertySet;
+        private readonly TSourceProp _fallback;
         private readonly BindingMode _mode;
         private IBindingConverter _converter;
         #endregion
@@ -27,26 +30,30 @@ namespace SimpleBinding
         #region public properties
         public BindingMode BindingMode => _mode;
 
+        public TSourceProp FallbackValue => _fallback;
         #endregion
 
         #region constructor
-        internal TypedBinding(int id, TSource source, 
-            Expression<Func<TSource, TSourceProp>> sourceProperty,
-            TTarget target, Expression<Func<TTarget, TTargetProp>> targetProperty, 
-            BindingMode mode=BindingMode.TwoWay, IBindingConverter converter=null)
-        :base(id, typeof(TSource), typeof(TTarget))
+        internal TypedBinding(int id, TSource source, Expression<Func<TSource, TSourceProp>> sourceProperty, TTarget target, 
+            Expression<Func<TTarget, TTargetProp>> targetProperty, TSourceProp fallback, BindingMode mode, IBindingConverter converter)
+            : base(id, typeof(TSource), typeof(TTarget))
         {
-            //Make sure types are compatible when a converter is not specified
-            //If a converter is specified, no need to worry about compatibility, as programming a working converter is the dev problem
             if (converter == null && typeof(TSourceProp) != typeof(TTargetProp))
-                throw new ArgumentException("Unable to create binding because " + 
-                                                $"{typeof(TTargetProp)} and {typeof(TSourceProp)} " + 
-                                                "Are not the same type and no converter was specified");
+                throw new ArgumentException("Unable to create binding because " +
+                                            $"{typeof(TTargetProp)} and {typeof(TSourceProp)} " +
+                                            "Are not the same type and no converter was specified");
 
             if (source == null)
                 throw new ArgumentNullException(nameof(source));
             if (target == null)
                 throw new ArgumentNullException(nameof(target));
+            if (sourceProperty == null)
+                throw new ArgumentNullException(nameof(sourceProperty));
+            if (targetProperty == null)
+                throw new ArgumentNullException(nameof(targetProperty));
+
+            _fallback = fallback == null ? default(TSourceProp) : fallback;
+
 
             //Retrieving the MemberExpression objects indicated by the expressions provided to the constructor is vital to 
             //Constructing the delegates to getter/setter methods for the bound properties
@@ -58,7 +65,7 @@ namespace SimpleBinding
 
             _sourceObject = new WeakReference(source);
             _targetObject = new WeakReference(target);
-            _converter = converter ?? new NonConverter();
+            _converter = converter;
             _mode = mode;
 
 
@@ -69,6 +76,9 @@ namespace SimpleBinding
                 _targetPropertySet = (Action<TTarget, TTargetProp>)CreateDelegate<TTarget, TTargetProp>(targetMember, DelegateType.Set);
 
                 PropertyChangedEventManager.AddHandler(source, this.OnSourceChanged, sourceMember.Member.Name);
+
+                //This step simply ensures that the properties are put in sync once the binding is made
+                OnSourceChanged(source, new PropertyChangedEventArgs(_sourcePropName));
             }
 
             if (BindingMode == BindingMode.OneWayToSource || BindingMode == BindingMode.TwoWay)
@@ -76,6 +86,10 @@ namespace SimpleBinding
                 _sourcePropertySet = (Action<TSource, TSourceProp>)CreateDelegate<TSource, TSourceProp>(sourceMember, DelegateType.Set);
                 _targetPropertyGet = (Func<TTarget, TTargetProp>)CreateDelegate<TTarget, TTargetProp>(targetMember, DelegateType.Get);
                 PropertyChangedEventManager.AddHandler(target, this.OnTargetChanged, targetMember.Member.Name);
+
+                //Make sure the properties are put in sync once the binding is made
+                if (BindingMode == BindingMode.OneWayToSource)
+                    OnTargetChanged(target, new PropertyChangedEventArgs(_targetPropName));
             }
         }
         #endregion
@@ -107,9 +121,7 @@ namespace SimpleBinding
 
             mi = type == DelegateType.Get 
                 ? prop.GetMethod 
-                : type == DelegateType.Set 
-                    ? prop.SetMethod
-                    : throw new ArgumentException("parameter DelegateType must be valid member of DelegateType enum");
+                : prop.SetMethod;
 
             if (mi == null)
                 throw new NotImplementedException("Unable to create binding because " +
@@ -145,18 +157,56 @@ namespace SimpleBinding
             }
         }
 
+        /// <summary>
+        /// Attempts a conversion between toConvert and type TOut using conversionMethod 
+        /// and returns the default value of type TOut on failure
+        /// </summary>
+        /// <typeparam name="TOut">the type after conversion</typeparam>
+        /// <typeparam name="TIn">the type before conversion</typeparam>
+        /// <param name="toConvert">the value to be converted</param>
+        /// <param name="conversionMethod">the function which performs the conversion</param>
+        /// <returns>instance of TOut</returns>
+        protected TOut TryConvert<TOut, TIn>(TIn toConvert, Func<object, Type, object> conversionMethod)
+        {
+            TOut converted;
+
+            try
+            {
+                converted = (TOut) conversionMethod(toConvert, typeof(TOut));
+            }
+            catch
+            {
+                converted = default(TOut);
+            }
+
+            return converted;
+        }
+
         protected void UpdateTargetFromSource(object state)
         {
+            TSourceProp sourceValue;
+            TTargetProp converted;
+
+            //If there exists no converter, then the conversion method sould be to attempt a straight type cast
+            Func<object, Type, object> conversionMethod = _converter != null 
+                ? _converter.ConvertSourceToTarget 
+                : (Func<object, Type, object>)((o, type) => (TTargetProp) o);
+
             if (_sourceObject.Target is TSource source && _targetObject.Target is TTarget target)
             {
                 lock(source)
                 lock (target)
                 {
-                    TSourceProp sourceValue = _sourcePropertyGet(source);
-                    TTargetProp converted = (TTargetProp)_converter.ConvertSourceToTarget(sourceValue, typeof(TTargetProp));
+                    sourceValue = _sourcePropertyGet(source);
+
+                    //If both the source value and its fallback are null (i.e. no data and no fallback), use the default of the type
+                    //Otherwise, attempt a conversion and use the result
+                    converted = sourceValue == null && _fallback == null 
+                        ? default(TTargetProp) 
+                        : TryConvert<TTargetProp, TSourceProp>(sourceValue == null ? _fallback : sourceValue, conversionMethod);
+
                     _targetPropertySet(target, converted);
                 }
-                
             }
             else
             {
@@ -166,13 +216,28 @@ namespace SimpleBinding
 
         protected void UpdateSourceFromTarget(object state)
         {
+            TTargetProp targetValue;
+            TSourceProp converted;
+
+            Func<object, Type, object> conversionMethod = _converter != null
+                ? _converter.ConvertTargetToSource
+                : (Func<object, Type, object>) ((o, type) => (TSourceProp)o);
+
             if (_sourceObject.Target is TSource source && _targetObject.Target is TTarget target)
             {
                 lock(source)
                 lock (target)
                 {
-                    TTargetProp targetValue = _targetPropertyGet(target);
-                    TSourceProp converted = (TSourceProp)_converter.ConvertTargetToSource(targetValue, typeof(TSourceProp));
+                    targetValue = _targetPropertyGet(target);
+
+                    //Lots of possibilities to consider here.
+                    //First, the converter might be null, which should only happen when TSourceProp and TTargetProp are the same
+                    //In those instances, we can simply cast straight from source to target or use the fallback as necessary
+                    //Second, the target value may be null, in which case we simply return the fallback value
+                    //Finally, a converter and a target value might exist. In those cases, attempt to convert using the converter
+                    //and if that fails, use the fallback
+                    converted = targetValue == null ? _fallback : TryConvert<TSourceProp, TTargetProp>(targetValue, conversionMethod);
+
                     _sourcePropertySet(source, converted);
                 }
             }

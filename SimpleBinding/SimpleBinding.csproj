@@ -48,6 +48,7 @@
     <Compile Include="DelegateType.cs" />
     <Compile Include="IBindingConverter.cs" />
     <Compile Include="NonConverter.cs" />
+    <Compile Include="NotifyDecorator.cs" />
     <Compile Include="Properties\Annotations.cs" />
     <Compile Include="PropertyChangingEventManager.cs" />
     <Compile Include="TypedBinding.cs" />

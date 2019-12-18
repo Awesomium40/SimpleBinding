@@ -10,13 +10,14 @@ using SimpleBinding.UnitTest.Annotations;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Windows;
 
 namespace SimpleBinding.UnitTest
 {
-    [Microsoft.VisualStudio.TestTools.UnitTesting.TestClass]
+    [TestClass]
     public class BindingTest
     {
-        [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [TestMethod]
         public void TestBindingOptionPerformance()
         {
             MethodInfo getter;
@@ -43,7 +44,7 @@ namespace SimpleBinding.UnitTest
             for (int i = 0; i < iterations; i++)
             {
                 var timer = Stopwatch.StartNew();
-                setter.Invoke(bto, new object[]{i});
+                setter.Invoke(bto, new object[] {i});
                 timer.Stop();
                 elapsedTicks += timer.ElapsedTicks;
             }
@@ -85,7 +86,7 @@ namespace SimpleBinding.UnitTest
             for (int i = 0; i < iterations; i++)
             {
                 var timer = Stopwatch.StartNew();
-                getter.Invoke(bto, new object[]{});
+                getter.Invoke(bto, new object[] { });
                 timer.Stop();
                 elapsedTicks += timer.ElapsedTicks;
             }
@@ -116,6 +117,7 @@ namespace SimpleBinding.UnitTest
                 x = bto.SourceIntProperty;
                 elapsedTicks += timer.ElapsedTicks;
             }
+
             Trace.Write($"{iterations} iterations of getting via property get/set took {elapsedTicks} ticks\n");
             Trace.Write("***********************************************************************************\n");
 
@@ -125,7 +127,7 @@ namespace SimpleBinding.UnitTest
         }
 
         private MethodInfo GetMethodInfo<TObject, TProperty>(TObject target,
-            Expression<Func<TObject, TProperty>> expression, string methodType="get")
+            Expression<Func<TObject, TProperty>> expression, string methodType = "get")
         {
             MethodInfo methodInfo;
 
@@ -145,7 +147,8 @@ namespace SimpleBinding.UnitTest
             return methodInfo;
         }
 
-        private Delegate CreateDelegate<TObj, TProp>(TObj target, Expression<Func<TObj, TProp>> expression, string type="get")
+        private Delegate CreateDelegate<TObj, TProp>(TObj target, Expression<Func<TObj, TProp>> expression,
+            string type = "get")
         {
             Delegate d;
             MethodInfo mi;
@@ -177,9 +180,13 @@ namespace SimpleBinding.UnitTest
             int bindingId;
             BindingTestObject source = new BindingTestObject();
             BindingTestObject target = new BindingTestObject();
+            source.SourceIntProperty = -1;
+            target.SourceIntProperty = 200;
 
-            bindingId = BindingManager.CreateBinding(source, s => s.SourceIntProperty, target, 
-                t => t.SourceIntProperty,  BindingMode.OneWay, null);
+            bindingId = BindingManager.Register(source, s => s.SourceIntProperty, target, t => t.SourceIntProperty, default(int), BindingMode.OneWay);
+
+            //After binding, the source and target properties should be in sync
+            Assert.AreEqual(source.SourceIntProperty, target.SourceIntProperty);
 
             //After the binding is created, changes to source should propogate to target
             source.SourceIntProperty = 99;
@@ -191,7 +198,7 @@ namespace SimpleBinding.UnitTest
             Assert.AreEqual(source.SourceIntProperty, 99);
 
             //Disposing of a binding should cause updates to stop propogating
-            BindingManager.DestroyBinding(bindingId);
+            BindingManager.Unregister(bindingId);
 
             source.SourceIntProperty = 0;
             Assert.AreNotEqual(source.SourceIntProperty, target.SourceIntProperty);
@@ -207,33 +214,25 @@ namespace SimpleBinding.UnitTest
             BindingTestObject target = new BindingTestObject();
             StringToIntConverter converter = new StringToIntConverter();
 
-            bindingId = BindingManager.CreateBinding(source, s => s.SourceStringProperty, target,
-                t => t.SourceIntProperty, BindingMode.OneWay, converter);
+            bindingId = BindingManager.Register(source, s => s.SourceStringProperty, target,
+                t => t.SourceIntProperty, default(string), BindingMode.OneWay, converter);
 
             //After the binding, changes to the source property should be converted to their integer counterparts 
             //and propogated to the target
             source.SourceStringProperty = "99";
             Assert.AreEqual(target.SourceIntProperty, 99);
 
-            //However, values that cannot be converted to an integer should raise an exception
-            //SourceStringPropertySet setter = s => source.SourceStringProperty = s;
-            Func<object> setter = () =>
-            {
-                source.SourceStringProperty = "Toasty";
-                return null;
-            };
-            Assert.ThrowsException<FormatException>(setter, "");
-
-            //Also, a failure of the binding's update process should cause the source object's property
-            //to be reverted to its original state
-            Assert.AreEqual(source.SourceStringProperty, "99");
+            //However, values that cannot be converted to an integer should cause the fallback value to be used. 
+            //Since no fallback value was specified, the value should be set to the default of integer type
+            source.SourceStringProperty = "Toasty";
+            Assert.AreEqual(target.SourceIntProperty, default(int));
 
             //Also, changes to the target should not affect the source in a OneWay binding
             target.SourceIntProperty = 55;
             Assert.AreNotEqual(source.SourceStringProperty, "55");
 
             //Disposing of the bindings should cease updates to stop propogating
-            BindingManager.DestroyBinding(bindingId);
+            BindingManager.Unregister(bindingId);
 
             source.SourceStringProperty = "-1";
             Assert.AreNotEqual(target.SourceIntProperty, -1);
@@ -252,8 +251,7 @@ namespace SimpleBinding.UnitTest
                 var b1 = new BindingTestObject();
                 var b2 = new BindingTestObject();
 
-                BindingManager.CreateBinding(b1, b => b.SourceIntProperty, b2, b => b.SourceStringProperty, 
-                    BindingMode.TwoWay, null);
+                BindingManager.Register(b1, b => b.SourceIntProperty, b2, b => b.SourceStringProperty);
 
                 return null;
             };
@@ -261,8 +259,7 @@ namespace SimpleBinding.UnitTest
             Assert.ThrowsException<ArgumentException>(creator, "");
 
             //Can, however, create binding between properties of the same type
-            bindingKey = BindingManager.CreateBinding(bto1, t => t.SourceIntProperty,
-                bto2, t => t.SourceIntProperty, BindingMode.TwoWay, null);
+            bindingKey = BindingManager.Register(bto1, t => t.SourceIntProperty, bto2, t => t.SourceIntProperty);
 
             //Binding should cause target to update when source updates
             bto1.SourceIntProperty = 25;
@@ -282,7 +279,7 @@ namespace SimpleBinding.UnitTest
             Assert.AreEqual(bto2.SourceStringProperty, "Not Toasty");
 
             //Disposing of the binding should cease all propogation of updates
-            BindingManager.DestroyBinding(bindingKey);
+            BindingManager.Unregister(bindingKey);
 
             bto1.SourceIntProperty = -1;
             bto2.SourceIntProperty = 256;
@@ -290,42 +287,6 @@ namespace SimpleBinding.UnitTest
             Assert.AreNotEqual(bto1.SourceIntProperty, bto2.SourceIntProperty);
             Assert.AreEqual(bto1.SourceIntProperty, -1);
             Assert.AreEqual(bto2.SourceIntProperty, 256);
-        }
-
-        [TestMethod]
-        public void TestNestedPropertyBinding()
-        {
-            var nested1 = new NestedBindingObject();
-            var nested2 = new NestedBindingObject();
-            var target = new BindingTestObject();
-
-            nested1.SourceIntProperty = 22;
-            nested1.SourceStringProperty = "Toasty";
-
-            int key = BindingManager.CreateBinding(nested1, b => b.InnerObject.SourceIntProperty, target,
-                b => b.SourceIntProperty,
-                BindingMode.TwoWay, null);
-
-            Expression<Func<NestedBindingObject, int>> x = b => b.InnerObject.SourceIntProperty;
-
-            Expression e = x.Body;
-            bool cont = true;
-
-            MemberExpression inner = e as MemberExpression;
-
-            while (cont)
-            {
-                Trace.Write($"{inner?.Member.Name} <--");
-                if (inner.Expression is MemberExpression expr)
-                {
-                    inner = expr;
-                }
-                else
-                {
-                    cont = false;
-                }
-            }
-
         }
     }
 
@@ -428,8 +389,8 @@ namespace SimpleBinding.UnitTest
     public class StringToIntConverter : SimpleBinding.IBindingConverter
     {
         public object ConvertSourceToTarget(object source, Type targetType)
-        {
-            if (source is string s)
+        {                
+            if (source != null && source is string s)
                 return int.Parse(s);
 
             throw new ArgumentException($"Parameter {nameof(source)} expected type 'string'");

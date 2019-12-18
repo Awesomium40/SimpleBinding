@@ -9,3 +9,4 @@ D:\Git\SimpleBinding\SimpleBinding\bin\Debug\SimpleBinding.pdb
 D:\Git\SimpleBinding\SimpleBinding\obj\Debug\SimpleBinding.csprojAssemblyReference.cache
 D:\Git\SimpleBinding\SimpleBinding\obj\Debug\SimpleBinding.dll
 D:\Git\SimpleBinding\SimpleBinding\obj\Debug\SimpleBinding.pdb
+D:\Git\SimpleBinding\SimpleBinding\obj\Debug\SimpleBinding.csproj.CoreCompileInputs.cache
