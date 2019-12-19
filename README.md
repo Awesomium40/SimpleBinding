@@ -11,7 +11,7 @@
 <H2>How to use it</H2>
 <p>To bind together the properties of a source and target object, simply invoke the static CreateBinding method of the BindingManager class:</p>
 <code>int bindingId = BindingManager.Register(sourceObject,  s => s.SourceProperty, targetObject, t => t.TargetProperty, fallback, bindingMode, converter);</code></p>
-<h3>Notes<h3>
+<h3>Notes</h3>
 <p>The <code>fallback</code> parameter specifies the value to be used in updating the target if the source property has no data or when conversion to the target type provides no result. In a two-way binding, this value is also used to update the source when the target has no value or when converting the target value provides no result. This parameter is optional and if omitted, will cause the default of the source property's type to be used as a fallback. For many types, the default is null, so failing to specify a fallback may lead to null reference exceptions.</p>
 <p>The <code>bindingMode</code> parameter is a member of the <code>BindingMode</code> enum. You can specify the following:</p>
 <ul>
