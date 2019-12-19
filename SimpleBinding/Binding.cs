@@ -60,7 +60,5 @@ namespace SimpleBinding
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
         #endregion
-
-        public abstract void Dispose();
     }
 }

@@ -131,8 +131,8 @@ namespace SimpleBinding
 
             if (bindingFound)
             {
-                b.Dispose();
                 b.PropertyChanged -= Binding_OnIsActiveChanged;
+                b = null;
             }
             else
             {

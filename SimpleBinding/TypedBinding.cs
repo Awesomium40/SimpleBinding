@@ -314,7 +314,7 @@ namespace SimpleBinding
         /// <summary>
         /// Cleans up references in the current instance when a binding is no longer active
         /// </summary>
-        public override void Dispose()
+         ~TypedBinding()
         {
             if (_sourceObject.Target is TSource source)
             {
