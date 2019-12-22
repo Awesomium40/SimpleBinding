@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Windows;
 using BindingManager.Annotations;
 using Expression = System.Linq.Expressions.Expression;
@@ -25,6 +26,7 @@ namespace SimpleBinding
         private readonly TSourceProp _fallback;
         private readonly BindingMode _mode;
         private IBindingConverter _converter;
+        private readonly object _syncRoot = new object();
         #endregion
 
         #region public properties
@@ -141,20 +143,23 @@ namespace SimpleBinding
         /// and does not contain a MemberExpression</exception>
         protected MemberExpression GetMemberExpression(Expression e)
         {
+            MemberExpression me;
             if (e is MemberExpression memberExpression)
             {
-                return memberExpression;
+                me = memberExpression;
             }
             else if (e is UnaryExpression unaryExpression &&
                      (unaryExpression.NodeType == ExpressionType.Convert ||
                       unaryExpression.NodeType == ExpressionType.ConvertChecked))
             {
-                return GetMemberExpression(unaryExpression.Operand);
+                me =  GetMemberExpression(unaryExpression.Operand);
             }
             else
             {
                 throw new BindingException("Unsupported Expression type");
             }
+
+            return me;
         }
 
         /// <summary>
@@ -254,29 +259,34 @@ namespace SimpleBinding
         /// <param name="e">PropertyChangedEventArgs instance</param>
         protected void OnSourceChanged(object sender, PropertyChangedEventArgs e)
         {
-            if ((_mode == BindingMode.OneWay || _mode == BindingMode.TwoWay)
-                && !_isUpdating)
+            if (Monitor.TryEnter(_syncRoot))
             {
-                try
+                if ((_mode == BindingMode.OneWay || _mode == BindingMode.TwoWay)
+                    && !_isUpdating)
                 {
-                    _isUpdating = true;
-                    if (BindingManager.SynchronizationContext != null)
-                        BindingManager.SynchronizationContext.Send(UpdateTargetFromSource, null);
+                    try
+                    {
+                        _isUpdating = true;
+                        if (BindingManager.SynchronizationContext != null)
+                            BindingManager.SynchronizationContext.Send(UpdateTargetFromSource, null);
 
-                    else
-                        UpdateTargetFromSource(null);
+                        else
+                            UpdateTargetFromSource(null);
+                    }
+                    catch
+                    {
+                        Debug.Print($"Update of property {SourceType}.{SourceProperty} " +
+                                    $"to {TargetType}.{TargetProperty} failed. " +
+                                    "Source property should be reverted to avoid inconsistent states");
+                        throw;
+                    }
+                    finally
+                    {
+                        _isUpdating = false;
+                        Monitor.Exit(_syncRoot);
+                    }
                 }
-                catch
-                {
-                    Debug.Print($"Update of property {SourceType}.{SourceProperty} " +
-                                $"to {TargetType}.{TargetProperty} failed. " + 
-                                "Source property should be reverted to avoid inconsistent states");
-                    throw;
-                }
-                finally
-                {
-                    _isUpdating = false;
-                }
+
             }
         }
 
@@ -287,26 +297,30 @@ namespace SimpleBinding
         /// <param name="e">PropertyChangedEventArgs instance</param>
         protected void OnTargetChanged(object sender, PropertyChangedEventArgs e)
         {
-            if ((_mode == BindingMode.OneWayToSource || _mode == BindingMode.TwoWay) && !_isUpdating)
+            if (Monitor.TryEnter(_syncRoot))
             {
-                try
+                if ((_mode == BindingMode.OneWayToSource || _mode == BindingMode.TwoWay) && !_isUpdating)
                 {
-                    _isUpdating = true;
-                    if (BindingManager.SynchronizationContext != null)
-                        BindingManager.SynchronizationContext.Send(UpdateSourceFromTarget, null);
+                    try
+                    {
+                        _isUpdating = true;
+                        if (BindingManager.SynchronizationContext != null)
+                            BindingManager.SynchronizationContext.Send(UpdateSourceFromTarget, null);
 
-                    else
-                        UpdateSourceFromTarget(null);
-                }
-                catch
-                {
-                    Debug.Print($"Update of property {TargetType}.{TargetProperty} " +
-                                $"to {SourceType}.{SourceProperty} failed. Source property was reverted");
-                    throw;
-                }
-                finally
-                {
-                    _isUpdating = false;
+                        else
+                            UpdateSourceFromTarget(null);
+                    }
+                    catch
+                    {
+                        Debug.Print($"Update of property {TargetType}.{TargetProperty} " +
+                                    $"to {SourceType}.{SourceProperty} failed. Source property was reverted");
+                        throw;
+                    }
+                    finally
+                    {
+                        _isUpdating = false;
+                        Monitor.Exit(_syncRoot);
+                    }
                 }
             }
         }
