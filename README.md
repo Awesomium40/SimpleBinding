@@ -23,7 +23,7 @@
 
 <p>The <code>Register()</code> method returns an integer key which is used to track and manage the binding internally. You can use this key later to dispose of the binding by providing it to the static <code>Unregister()</code> method.</p>
 <p>To remove a data binding, invoke the static Unregister() method and provide the integer key of the binding to be destroyed:</p>
-<p>BindingManager.Unregister(bindingId);</p>
+<code>BindingManager.Unregister(bindingId);</code>
 
 <H3>Caveats to usage</H3>
 <p>Note that binding to nested properties does work (ie binding outer.inner.property to someObject.property), provided that:</p>
