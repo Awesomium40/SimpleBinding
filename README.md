@@ -29,10 +29,10 @@
 <p>Note that binding to nested properties does work (ie binding outer.inner.property to someObject.property), provided that:</p>
 <ul>
   <li>inner implements INotifyPropertyChanged (it is not actually necessary for outer to implement INotifyPropertyChanged in this instance)</li>
-  <li>the call to CreateBinding is <code>BindingManager.CreateBinding(outer.inner, i => i.property, someObject, someObject.property...)</code></li>
+  <li>the call to Register is <code>BindingManager.Register(outer.inner, i => i.property, someObject, someObject.property...)</code></li>
 </ul>
 <p>In other words, attempting to bind as such:</p>
-<p><code>BindingManager.CreateBinding(outer, o => o.inner.property, target, t => t.Property...)</code> <b>will not work</b>, and although I am working on making this work, it is not high on my list of priorities.</p>
+<p><code>BindingManager.Register(outer, o => o.inner.property, target, t => t.Property...)</code> <b>will not work</b>, and although I am working on making this work, it is not high on my list of priorities.</p>
 <p>To understand why it makes sense that this binding does not work, consider:</p>
 <ul>
   <li>In order for outer to notify the binding manager that a property of inner has changed, inner would need to notify outer that said property has changed</li>
